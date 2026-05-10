@@ -1,0 +1,758 @@
+# React Native Android App for Resume Analyzer
+
+## Overview
+This approach creates a native Android app using React Native that communicates with your Streamlit backend via API.
+
+## Pros
+- Native performance
+- Offline capabilities
+- Full device integration
+- Smooth animations and transitions
+- App store distribution
+
+## Cons
+- Requires React Native development
+- Separate mobile codebase
+- More complex than WebView
+
+## Prerequisites
+```bash
+# Install Node.js (v16+)
+# Install React Native CLI
+npm install -g @react-native-community/cli
+
+# Install Android Studio
+# Configure Android SDK
+```
+
+## 1. Create React Native Project
+```bash
+npx react-native init ResumeAIApp --template react-native-template-typescript
+cd ResumeAIApp
+```
+
+## 2. Install Dependencies
+```bash
+# Navigation
+npm install @react-navigation/native @react-navigation/stack @react-navigation/bottom-tabs
+npm install react-native-screens react-native-safe-area-context
+
+# HTTP client
+npm install axios
+
+# File handling
+npm install react-native-document-picker react-native-fs
+
+# UI components
+npm install react-native-paper react-native-vector-icons
+
+# Camera (optional)
+npm install react-native-camera react-native-image-picker
+
+# Storage
+npm install @react-native-async-storage/async-storage
+
+# Development tools
+npm install --save-dev @types/react @types/react-native
+```
+
+## 3. API Configuration
+```typescript
+// src/api/config.ts
+export const API_CONFIG = {
+  BASE_URL: __DEV__ 
+    ? 'http://localhost:8501'  // Development
+    : 'https://your-app.streamlit.app',  // Production
+  TIMEOUT: 30000,
+};
+
+export const API_ENDPOINTS = {
+  ANALYZE: '/analyze',
+  INTERVIEW: '/interview',
+  ROADMAP: '/roadmap',
+  UPLOAD: '/upload',
+};
+```
+
+## 4. API Service
+```typescript
+// src/api/apiService.ts
+import axios from 'axios';
+import { API_CONFIG, API_ENDPOINTS } from './config';
+
+const api = axios.create({
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export const resumeAPI = {
+  // Upload and analyze resume
+  analyzeResume: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await api.post(API_ENDPOINTS.ANALYZE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get interview questions
+  getInterviewQuestions: async (role: string) => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.INTERVIEW}?role=${role}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Submit interview answer
+  submitInterviewAnswer: async (questionId: string, answer: string) => {
+    try {
+      const response = await api.post(`${API_ENDPOINTS.INTERVIEW}/answer`, {
+        questionId,
+        answer,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Generate learning roadmap
+  generateRoadmap: async (skills: string[], targetRole: string) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.ROADMAP, {
+        skills,
+        targetRole,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+```
+
+## 5. Types
+```typescript
+// src/types/index.ts
+export interface ResumeAnalysis {
+  atsScore: number;
+  skillsMatch: number;
+  grade: string;
+  skills: {
+    technical: string[];
+    soft: string[];
+    tools: string[];
+  };
+  recommendations: string[];
+}
+
+export interface InterviewQuestion {
+  id: string;
+  question: string;
+  type: 'technical' | 'behavioral' | 'situational';
+  category: string;
+  tips: string;
+}
+
+export interface InterviewFeedback {
+  score: number;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface LearningRoadmap {
+  targetRole: string;
+  phases: Array<{
+    title: string;
+    duration: string;
+    skills: string[];
+    resources: string[];
+  }>;
+  timeline: string;
+}
+```
+
+## 6. Navigation
+```typescript
+// src/navigation/AppNavigator.tsx
+import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+import HomeScreen from '../screens/HomeScreen';
+import AnalyzerScreen from '../screens/AnalyzerScreen';
+import InterviewScreen from '../screens/InterviewScreen';
+import RoadmapScreen from '../screens/RoadmapScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+
+const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+
+const TabNavigator = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: string;
+
+          if (route.name === 'Home') {
+            iconName = 'home';
+          } else if (route.name === 'Analyzer') {
+            iconName = 'search';
+          } else if (route.name === 'Interview') {
+            iconName = 'record-voice-over';
+          } else if (route.name === 'Roadmap') {
+            iconName = 'map';
+          } else {
+            iconName = 'person';
+          }
+
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#667eea',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Analyzer" component={AnalyzerScreen} />
+      <Tab.Screen name="Interview" component={InterviewScreen} />
+      <Tab.Screen name="Roadmap" component={RoadmapScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
+  );
+};
+
+export const AppNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={TabNavigator} />
+    </Stack.Navigator>
+  );
+};
+```
+
+## 7. Home Screen
+```typescript
+// src/screens/HomeScreen.tsx
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const HomeScreen = ({ navigation }: any) => {
+  const features = [
+    {
+      id: 'analyzer',
+      title: 'Resume Analysis',
+      description: 'AI-powered resume analysis with ATS scoring',
+      icon: 'search',
+      color: '#667eea',
+      screen: 'Analyzer',
+    },
+    {
+      id: 'interview',
+      title: 'Interview Coach',
+      description: 'Practice interviews with AI feedback',
+      icon: 'record-voice-over',
+      color: '#f56565',
+      screen: 'Interview',
+    },
+    {
+      id: 'roadmap',
+      title: 'Learning Roadmap',
+      description: 'Personalized skill development plans',
+      icon: 'map',
+      color: '#48bb78',
+      screen: 'Roadmap',
+    },
+  ];
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Resume AI</Text>
+        <Text style={styles.subtitle}>Your Career Assistant</Text>
+      </View>
+
+      <View style={styles.featuresContainer}>
+        {features.map((feature) => (
+          <TouchableOpacity
+            key={feature.id}
+            style={[styles.featureCard, { borderLeftColor: feature.color }]}
+            onPress={() => navigation.navigate(feature.screen)}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: feature.color }]}>
+              <Icon name={feature.icon} size={24} color="white" />
+            </View>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>{feature.title}</Text>
+              <Text style={styles.featureDescription}>{feature.description}</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#gray" />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.statsContainer}>
+        <Text style={styles.statsTitle}>Your Progress</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>85%</Text>
+            <Text style={styles.statLabel}>ATS Score</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statLabel}>Interviews</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>5</Text>
+            <Text style={styles.statLabel}>Skills</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#667eea',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 5,
+  },
+  featuresContainer: {
+    padding: 20,
+  },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 20,
+    marginBottom: 15,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  iconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  featureDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  statsContainer: {
+    padding: 20,
+    backgroundColor: 'white',
+    margin: 20,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#667eea',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+  },
+});
+
+export default HomeScreen;
+```
+
+## 8. Analyzer Screen
+```typescript
+// src/screens/AnalyzerScreen.tsx
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
+import { resumeAPI } from '../api/apiService';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const AnalyzerScreen = () => {
+  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<any>(null);
+
+  const selectFile = async () => {
+    try {
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.pdf, DocumentPicker.types.docx],
+      });
+      setSelectedFile(result[0]);
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) {
+        // User cancelled
+      } else {
+        Alert.alert('Error', 'Failed to select file');
+      }
+    }
+  };
+
+  const analyzeResume = async () => {
+    if (!selectedFile) {
+      Alert.alert('Error', 'Please select a resume file');
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      // Convert file to format expected by API
+      const formData = new FormData();
+      formData.append('file', {
+        uri: selectedFile.uri,
+        type: selectedFile.type,
+        name: selectedFile.name,
+      });
+
+      const result = await resumeAPI.analyzeResume(formData);
+      setAnalysis(result);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to analyze resume');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Resume Analyzer</Text>
+        <Text style={styles.subtitle}>Get AI-powered insights</Text>
+      </View>
+
+      <View style={styles.content}>
+        <TouchableOpacity style={styles.uploadButton} onPress={selectFile}>
+          <Icon name="cloud-upload" size={48} color="#667eea" />
+          <Text style={styles.uploadText}>
+            {selectedFile ? selectedFile.name : 'Select Resume File'}
+          </Text>
+          <Text style={styles.uploadSubtext}>PDF or DOCX</Text>
+        </TouchableOpacity>
+
+        {selectedFile && (
+          <TouchableOpacity
+            style={[styles.analyzeButton, analyzing && styles.disabledButton]}
+            onPress={analyzeResume}
+            disabled={analyzing}
+          >
+            {analyzing ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.analyzeText}>Analyze Resume</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {analysis && (
+          <View style={styles.resultsContainer}>
+            <Text style={styles.resultsTitle}>Analysis Results</Text>
+            
+            <View style={styles.metricsContainer}>
+              <View style={styles.metric}>
+                <Text style={styles.metricValue}>{analysis.atsScore}</Text>
+                <Text style={styles.metricLabel}>ATS Score</Text>
+              </View>
+              <View style={styles.metric}>
+                <Text style={styles.metricValue}>{analysis.skillsMatch}%</Text>
+                <Text style={styles.metricLabel}>Skills Match</Text>
+              </View>
+              <View style={styles.metric}>
+                <Text style={styles.metricValue}>{analysis.grade}</Text>
+                <Text style={styles.metricLabel}>Grade</Text>
+              </View>
+            </View>
+
+            <View style={styles.skillsContainer}>
+              <Text style={styles.skillsTitle}>Detected Skills</Text>
+              {analysis.skills.technical.map((skill: string, index: number) => (
+                <View key={index} style={styles.skillTag}>
+                  <Text style={styles.skillText}>{skill}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: '#667eea',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 5,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  uploadButton: {
+    backgroundColor: 'white',
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: '#667eea',
+    borderRadius: 10,
+    padding: 40,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  uploadText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 15,
+  },
+  uploadSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  analyzeButton: {
+    backgroundColor: '#667eea',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  analyzeText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  resultsContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  resultsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  metric: {
+    alignItems: 'center',
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#667eea',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+  },
+  skillsContainer: {
+    marginTop: 20,
+  },
+  skillsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  skillTag: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    marginRight: 10,
+    marginBottom: 5,
+  },
+  skillText: {
+    fontSize: 12,
+    color: '#1976d2',
+  },
+});
+
+export default AnalyzerScreen;
+```
+
+## 9. Android Configuration
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.CAMERA" />
+
+<application
+  android:name=".MainApplication"
+  android:label="@string/app_name"
+  android:icon="@mipmap/ic_launcher"
+  android:roundIcon="@mipmap/ic_launcher_round"
+  android:allowBackup="false"
+  android:theme="@style/AppTheme">
+  
+  <activity
+    android:name=".MainActivity"
+    android:label="@string/app_name"
+    android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+    android:launchMode="singleTask"
+    android:windowSoftInputMode="adjustResize"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+  </activity>
+</application>
+```
+
+## 10. Build and Deploy
+```bash
+# Install dependencies
+npm install
+
+# Run on Android
+npx react-native run-android
+
+# Build APK
+cd android
+./gradlew assembleDebug
+
+# Build release APK
+./gradlew assembleRelease
+```
+
+## 11. Streamlit Backend API
+```python
+# api_backend.py - Add to your Streamlit app
+import streamlit as st
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+# Create FastAPI app
+app = FastAPI()
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/analyze")
+async def analyze_resume(file: UploadFile = File(...)):
+    # Your existing analysis logic
+    return {"atsScore": 85, "skillsMatch": 78, "grade": "B+"}
+
+# Run alongside Streamlit
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+## Benefits of React Native Approach
+
+1. **Native Performance**: Smooth animations and transitions
+2. **Offline Support**: Cache data for offline usage
+3. **Device Integration**: Camera, file system, notifications
+4. **App Store Ready**: Native app store distribution
+5. **Professional UI**: Material Design components
+6. **Scalable**: Easy to add new features
+
+This React Native approach gives you a fully native Android app with excellent performance and user experience!

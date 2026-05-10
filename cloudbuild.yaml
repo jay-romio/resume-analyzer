@@ -1,0 +1,29 @@
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'dockerfile.gcp', '-t', 'gcr.io/$PROJECT_ID/resume-analyzer:$SHORT_SHA', '.']
+  
+  # Push the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/resume-analyzer:$SHORT_SHA']
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'resume-analyzer'
+      - '--image=gcr.io/$PROJECT_ID/resume-analyzer:$SHORT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8501'
+      - '--memory=2Gi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--concurrency=10'
+      - '--set-env-vars=PORT=8501,STREAMLIT_SERVER_PORT=8501,STREAMLIT_SERVER_ADDRESS=0.0.0.0'
+
+images:
+  - 'gcr.io/$PROJECT_ID/resume-analyzer:$SHORT_SHA'

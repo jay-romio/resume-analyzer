@@ -1,0 +1,43 @@
+# Google Cloud Run optimized Dockerfile
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=8501
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.gcp.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.gcp.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+USER app
+
+# Expose port
+EXPOSE $PORT
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:$PORT/_stcore/health || exit 1
+
+# Run the app with Cloud Run optimizations
+CMD ["streamlit", "run", "mobile_app.py", "--server.port=$PORT", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false", "--browser.gatherUsageStats=false"]

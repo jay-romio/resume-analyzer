@@ -1,0 +1,47 @@
+# Google Cloud Run deployment configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: resume-analyzer
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    run.googleapis.com/cpu-throttling: "false"
+    run.googleapis.com/memory: "2Gi"
+    run.googleapis.com/cpu: "1"
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/memory: "2Gi"
+        run.googleapis.com/cpu: "1"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 10
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/PROJECT-ID/resume-analyzer:latest
+        ports:
+        - containerPort: 8501
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "8501"
+        - name: STREAMLIT_SERVER_PORT
+          value: "8501"
+        - name: STREAMLIT_SERVER_ADDRESS
+          value: "0.0.0.0"
+        - name: STREAMLIT_SERVER_ENABLE_CORS
+          value: "false"
+        - name: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
+          value: "false"
+        - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+          value: "false"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
