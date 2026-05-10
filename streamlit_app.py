@@ -3037,8 +3037,7 @@ class ResumeApp:
 
     def show_repo_notification(self):
         message = """
-    <div style="margin-bottom: 10px;"> User - </div>
-    <div style="margin-bottom: 10px;"> Password - </div>
+
 
 """
         st.sidebar.markdown(message, unsafe_allow_html=True)
